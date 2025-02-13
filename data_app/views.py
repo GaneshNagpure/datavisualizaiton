@@ -58,3 +58,34 @@ def import_and_display_excel_view(request):
 
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)})
+
+
+from django.shortcuts import render
+from django.db.models import Count
+from data_app.models import ExcelData
+import json
+
+def top_industries_view(request):
+    # Query to get the count of each industry
+    industry_counts = (
+        ExcelData.objects.values("data")
+        .annotate(count=Count("id"))
+        .order_by("-count")
+    )
+
+    # Extract industry names and counts
+    industries = {}
+    for record in industry_counts:
+        data = json.loads(record["data"])  # Convert JSON string back to dict
+        industry = data.get("Industry/Rating")
+        if industry:
+            industries[industry] = industries.get(industry, 0) + 1
+
+    # Sort industries by count and get the top 5
+    sorted_industries = sorted(industries.items(), key=lambda x: x[1], reverse=True)[:5]
+
+    # Prepare data for the pie chart
+    labels = [industry for industry, _ in sorted_industries]
+    counts = [count for _, count in sorted_industries]
+
+    return render(request, "chart.html", {"labels": labels, "counts": counts})
